@@ -55,18 +55,22 @@ int init(chip_8 *c)
 }
 
 // helper func
-void push(chip_8* c, uint16_t value){
-    if(c->sp+1 >= STACK_SIZE-1){
+void push(chip_8 *c, uint16_t value)
+{
+    if (c->sp + 1 >= STACK_SIZE - 1)
+    {
         fprintf(stderr, "stack overflow!!!");
         return;
     }
-    
+
     c->sp++;
     c->stack[c->sp] = value;
 }
 
-uint16_t pop(chip_8* c){
-    if(c->sp == 0){
+uint16_t pop(chip_8 *c)
+{
+    if (c->sp == 0)
+    {
         fprintf(stderr, "stack underflow!!!");
         return -1;
     }
@@ -382,8 +386,17 @@ void get_font_char(chip_8 *c, uint8_t vx)
     c->I = FONTSET_ADDRESS + c->V[vx] * 5;
 }
 
-// FX65: store register data in memory
+// FX55: store rgister data in memory
 void store_reg(chip_8 *c, uint8_t vx)
+{
+    for (int i = 0; i <= vx; i++)
+    {
+        c->memory[c->I + i] = c->V[i];
+    }
+}
+
+// FX65: load register data from memory
+void load_reg(chip_8 *c, uint8_t vx)
 {
     for (int i = 0; i <= vx; i++)
     {
@@ -407,6 +420,10 @@ int step(chip_8 *c)
         else if (full == 0x00EE)
         {
             return_subroutine(c);
+        }
+        else
+        {
+            printf("[!] unimplemented opcode! 0x%04x\n", full);
         }
         break;
     case 0x1:
@@ -460,6 +477,8 @@ int step(chip_8 *c)
         case 0xe:
             shift_reg_left(c, hi & 0xf);
             break;
+        default:
+            printf("[!] unimplemented opcode! 0x%04x\n", full);
         }
         break;
     case 0x9:
@@ -485,6 +504,8 @@ int step(chip_8 *c)
         case 0xa1:
             skip_if_key_not_pressed(c, hi & 0xf);
             break;
+        default:
+            printf("[!] unimplemented opcode! 0x%04x\n", full);
         }
         break;
     case 0xf:
@@ -508,11 +529,18 @@ int step(chip_8 *c)
         case 0x29:
             get_font_char(c, hi & 0xf);
             break;
-        case 0x65:
+        case 0x55:
             store_reg(c, hi & 0xf);
+            break;
+        case 0x65:
+            load_reg(c, hi & 0xf);
+            break;
+        default:
+            printf("[!] unimplemented opcode! 0x%04x\n", full);
         }
-    default:;
-        //printf("[*] unimplemented opcode! 0x%04x\n", full);
+        break;
+    default:
+        printf("[!] unimplemented opcode! 0x%04x\n", full);
     }
     return 1;
 }
