@@ -18,8 +18,10 @@
 
 #define REGISTER_SIZE 16
 
-#define ON_COLOR SDL_MAX_UINT32  // foreground color
-#define OFF_COLOR SDL_MIN_UINT32 // background color
+// SETTINGS
+#define ON_COLOR SDL_MAX_UINT32  // foreground color in hex
+#define OFF_COLOR SDL_MIN_UINT32 // background color in hex
+#define WRAP_GFX FALSE // FALSE if clip, TRUE if wrap. original chip-8 clipped, so the default is FALSE
 
 unsigned char fontset[80] = {
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0

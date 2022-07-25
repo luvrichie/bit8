@@ -116,10 +116,6 @@ void skip_equal(chip_8 *c, uint8_t vx, uint16_t value)
 {
     if (c->V[vx] == value)
     {
-        c->pc += 4;
-    }
-    else
-    {
         c->pc += 2;
     }
 }
@@ -129,10 +125,6 @@ void skip_not_equal(chip_8 *c, uint8_t vx, uint16_t value)
 {
     if (c->V[vx] != value)
     {
-        c->pc += 4;
-    }
-    else
-    {
         c->pc += 2;
     }
 }
@@ -141,10 +133,6 @@ void skip_not_equal(chip_8 *c, uint8_t vx, uint16_t value)
 void skip_equal_reg(chip_8 *c, uint8_t vx, uint8_t vy)
 {
     if (c->V[vx] == c->V[vy])
-    {
-        c->pc += 4;
-    }
-    else
     {
         c->pc += 2;
     }
@@ -208,7 +196,6 @@ void add_reg_to_reg(chip_8 *c, uint8_t vx, uint8_t vy)
 // if Vx is larger than Vy, VF is set to 1, however if Vy is bigger, then VF is set to 0.
 void sub_reg(chip_8 *c, uint8_t vx, uint8_t vy)
 {
-    c->V[vx] -= c->V[vy];
     if (c->V[vx] > c->V[vy])
     {
         c->V[0xf] = 1;
@@ -217,6 +204,7 @@ void sub_reg(chip_8 *c, uint8_t vx, uint8_t vy)
     {
         c->V[0xf] = 0;
     }
+    c->V[vx] -= c->V[vy];
 }
 
 // 8XY6: shift Vx one bit to right
@@ -244,18 +232,14 @@ void sub_reg_rev(chip_8 *c, uint8_t vx, uint8_t vy)
 // 8XYE: shift Vx one bit to left
 void shift_reg_left(chip_8 *c, uint8_t vx)
 {
-    c->V[0xf] = c->V[vx] & 0x1;
-    c->V[vx] <<= 1;
+    c->V[0xF] = (c->V[vx] >> 7) & 0x1;
+    c->V[vx] = (c->V[vx] << 1);
 }
 
 // 9XY0: skip if Vx is NOT equal to Vy
 void skip_not_equal_reg(chip_8 *c, uint8_t vx, uint8_t vy)
 {
     if (c->V[vx] != c->V[vy])
-    {
-        c->pc += 4;
-    }
-    else
     {
         c->pc += 2;
     }
@@ -289,20 +273,24 @@ void num_gen(chip_8 *c, uint8_t vx, uint16_t value)
 // (from: https://tobiasvl.github.io/blog/write-a-chip-8-emulator/)
 void draw_sprite(chip_8 *c, uint8_t vx, uint8_t vy, uint8_t n)
 {
-    int y_pos = c->V[vy] % DISPLAY_HEIGHT;
-    int x_pos = c->V[vx] % DISPLAY_WIDTH;
+    int y_pos = c->V[vy];
+    int x_pos = c->V[vx];
     c->V[0xf] = 0;
     for (int sprite_row = 0; sprite_row < n; sprite_row++)
     {
         for (int sprite_bit = 0; sprite_bit < 8; sprite_bit++)
         {
-            int screen_y = (y_pos + sprite_row);
-            int screen_x = (x_pos + sprite_bit);
+            int screen_y = (y_pos + sprite_row) % DISPLAY_HEIGHT;
+            int screen_x = (x_pos + sprite_bit) % DISPLAY_WIDTH;
             uint32_t screen_pixel = c->display[screen_y][screen_x];
             uint8_t sprite_pixel = ((c->memory[c->I + sprite_row]) >> (7 - sprite_bit)) & 1;
+            if (screen_x == DISPLAY_WIDTH)
+            {
+                break;
+            }
             if (screen_pixel == ON_COLOR && sprite_pixel != 0)
             {
-                c->display[screen_y][x_pos] = OFF_COLOR;
+                c->display[screen_y][screen_x] = OFF_COLOR;
                 c->V[0xf] = 1;
             }
             else if (screen_pixel == OFF_COLOR && sprite_pixel != 0)
@@ -319,10 +307,6 @@ void skip_if_key_pressed(chip_8 *c, uint8_t vx)
 {
     if (c->keys[c->V[vx]] == 1)
     {
-        c->pc += 4;
-    }
-    else
-    {
         c->pc += 2;
     }
 }
@@ -331,10 +315,6 @@ void skip_if_key_pressed(chip_8 *c, uint8_t vx)
 void skip_if_key_not_pressed(chip_8 *c, uint8_t vx)
 {
     if (c->keys[c->V[vx]] == 0)
-    {
-        c->pc += 4;
-    }
-    else
     {
         c->pc += 2;
     }
@@ -384,6 +364,22 @@ void add_reg_index(chip_8 *c, uint8_t vx)
 void get_font_char(chip_8 *c, uint8_t vx)
 {
     c->I = FONTSET_ADDRESS + c->V[vx] * 5;
+}
+
+// FX33: binary-coded decimal conversion
+// takes the number from Vx and converts it to 3 decimal digits, storing them
+// in memory at the address in the index register.
+// for example, if Vx contains 156, (or 9C in hex), it would put the number 1 at the addres in I,
+// 5 in address I + 1, and 6 un address I + 2
+void bcd(chip_8 *c, uint8_t vx)
+{
+    int num = c->V[vx];
+    int ones = num % 10;
+    int tens = (num / 10) % 10;
+    int huns = (num / 100) % 10;
+    c->memory[c->I + 0] = huns & 0xff;
+    c->memory[c->I + 1] = tens & 0xff;
+    c->memory[c->I + 2] = ones & 0xff;
 }
 
 // FX55: store rgister data in memory
@@ -483,6 +479,7 @@ int step(chip_8 *c)
         break;
     case 0x9:
         skip_not_equal_reg(c, hi & 0xf, lo >> 4);
+        break;
     case 0xa:
         set_index_reg(c, full & 0xfff);
         break;
@@ -528,6 +525,9 @@ int step(chip_8 *c)
             break;
         case 0x29:
             get_font_char(c, hi & 0xf);
+            break;
+        case 0x33:
+            bcd(c, hi & 0xf);
             break;
         case 0x55:
             store_reg(c, hi & 0xf);
@@ -608,11 +608,6 @@ int main(int argc, char **argv)
             default:
                 break;
             }
-        }
-        if (c.pc + 2 > MEMORY_SIZE)
-        {
-            printf("[*] program counter will overflow in next step, exiting...\n");
-            exit(1);
         }
 
         const uint8_t *key_state = SDL_GetKeyboardState(NULL);
