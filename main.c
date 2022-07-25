@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <SDL2/SDL.h>
+#include <inttypes.h>
 
 int load(chip_8 *c, char *filename)
 {
@@ -53,6 +54,27 @@ int init(chip_8 *c)
     return 1;
 }
 
+// helper func
+void push(chip_8* c, uint16_t value){
+    if(c->sp+1 >= STACK_SIZE-1){
+        fprintf(stderr, "stack overflow!!!");
+        return;
+    }
+    
+    c->sp++;
+    c->stack[c->sp] = value;
+}
+
+uint16_t pop(chip_8* c){
+    if(c->sp == 0){
+        fprintf(stderr, "stack underflow!!!");
+        return -1;
+    }
+    uint16_t result = c->stack[c->sp];
+    c->sp--;
+    return result;
+}
+
 // 00E0: clear display
 // the title says it all; clears chip-8's display.
 void clear_display(chip_8 *c)
@@ -65,12 +87,12 @@ void clear_display(chip_8 *c)
 // pop the last address from stack and set the PC to it
 void return_subroutine(chip_8 *c)
 {
-    c->pc = c->stack[--c->sp];
+    c->pc = pop(c);
 }
 
 // 1NNN: jump to address
 // to say it differently: sets the program counter to the address provided.
-void jmp_addr(chip_8 *c, uint8_t addr)
+void jmp_addr(chip_8 *c, uint16_t addr)
 {
     c->pc = addr;
 }
@@ -81,7 +103,7 @@ void jmp_addr(chip_8 *c, uint8_t addr)
 // (from: https://tobiasvl.github.io/blog/write-a-chip-8-emulator/#00ee-and-2nnn-subroutines)
 void call_subroutine(chip_8 *c, uint16_t addr)
 {
-    c->stack[c->sp++] = c->pc + 2;
+    push(c, c->pc + 2);
     c->pc = addr;
 }
 
@@ -374,6 +396,7 @@ int step(chip_8 *c)
     uint8_t hi = c->memory[c->pc];
     uint8_t lo = c->memory[c->pc + 1];
     uint16_t full = (hi << 8) | lo;
+    c->pc += 2;
     switch (hi >> 4)
     {
     case 0x0:
@@ -488,8 +511,8 @@ int step(chip_8 *c)
         case 0x65:
             store_reg(c, hi & 0xf);
         }
-    default:
-        printf("[*] unimplemented opcode! 0x%04x\n", full);
+    default:;
+        //printf("[*] unimplemented opcode! 0x%04x\n", full);
     }
     return 1;
 }
@@ -595,7 +618,6 @@ int main(int argc, char **argv)
         }
 
         step(&c);
-        c.pc += 2;
         if (c.drawFlag)
         {
             SDL_SetRenderDrawColor(winRenderer, 0, 0, 0, 0);
