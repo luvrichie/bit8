@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include <SDL2/SDL.h>
 
 #define MEMORY_SIZE 4096
 
@@ -16,6 +17,9 @@
 #define FONTSET_ADDRESS 0x050
 
 #define REGISTER_SIZE 16
+
+#define ON_COLOR SDL_MAX_UINT32  // foreground color
+#define OFF_COLOR SDL_MIN_UINT32 // background color
 
 unsigned char fontset[80] = {
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
@@ -39,9 +43,11 @@ unsigned char fontset[80] = {
 typedef struct
 {
     uint8_t memory[MEMORY_SIZE];
-    uint8_t display[DISPLAY_WIDTH][DISPLAY_HEIGHT];
+    uint32_t display[DISPLAY_HEIGHT][DISPLAY_WIDTH];
     uint16_t stack[STACK_SIZE];
+    uint8_t sp;
     uint8_t V[REGISTER_SIZE];
+    uint8_t keys[16];
     uint16_t pc;
     uint16_t I;
     uint8_t delay_timer;
