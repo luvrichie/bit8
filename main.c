@@ -107,7 +107,7 @@ void jmp_addr(chip_8 *c, uint16_t addr)
 // (from: https://tobiasvl.github.io/blog/write-a-chip-8-emulator/#00ee-and-2nnn-subroutines)
 void call_subroutine(chip_8 *c, uint16_t addr)
 {
-    push(c, c->pc + 2);
+    push(c, c->pc);
     c->pc = addr;
 }
 
