@@ -163,18 +163,21 @@ void set_reg_to_reg(chip_8 *c, uint8_t vx, uint8_t vy)
 void bit_or_reg(chip_8 *c, uint8_t vx, uint8_t vy)
 {
     c->V[vx] |= c->V[vy];
+    c->V[0xf] = 0;
 }
 
 // 8XY2: Vx is set to bitwise AND of Vy
 void bit_and_reg(chip_8 *c, uint8_t vx, uint8_t vy)
 {
     c->V[vx] &= c->V[vy];
+    c->V[0xf] = 0;
 }
 
 // 8XY3: Vx is set to bitwise XOR of Vy
 void bit_xor_reg(chip_8 *c, uint8_t vx, uint8_t vy)
 {
     c->V[vx] ^= c->V[vy];
+    c->V[0xf] = 0;
 }
 
 // 8XY4: set Vx to Vx + Vy
@@ -210,10 +213,11 @@ void sub_reg(chip_8 *c, uint8_t vx, uint8_t vy)
 }
 
 // 8XY6: shift Vx one bit to right
-void shift_reg_right(chip_8 *c, uint8_t vx)
+void shift_reg_right(chip_8 *c, uint8_t vx, uint8_t vy)
 {
+    c->V[vx] = c->V[vy];
+    c->V[0xF] = c->V[vx] & 1;
     c->V[vx] = (c->V[vx] >> 1);
-    c->V[0xF] = (c->V[vx] >> 7) & 0x1;
 }
 
 // 8XY7: set Vx to Vy - Vx
@@ -233,10 +237,11 @@ void sub_reg_rev(chip_8 *c, uint8_t vx, uint8_t vy)
 }
 
 // 8XYE: shift Vx one bit to left
-void shift_reg_left(chip_8 *c, uint8_t vx)
+void shift_reg_left(chip_8 *c, uint8_t vx, uint8_t vy)
 {
-    c->V[vx] = (c->V[vx] << 1);
+    c->V[vx] = c->V[vy];
     c->V[0xF] = (c->V[vx] >> 7) & 0x1;
+    c->V[vx] = (c->V[vx] << 1);
 }
 
 // 9XY0: skip if Vx is NOT equal to Vy
@@ -283,14 +288,18 @@ void draw_sprite(chip_8 *c, uint8_t vx, uint8_t vy, uint8_t n)
     {
         for (int sprite_bit = 0; sprite_bit < 8; sprite_bit++)
         {
-            int screen_y = (y_pos + sprite_row) % DISPLAY_HEIGHT;
-            int screen_x = (x_pos + sprite_bit) % DISPLAY_WIDTH;
-            uint32_t screen_pixel = c->display[screen_y][screen_x];
-            uint8_t sprite_pixel = ((c->memory[c->I + sprite_row]) >> (7 - sprite_bit)) & 1;
-            if (screen_x == DISPLAY_WIDTH)
+            int screen_y = (y_pos + sprite_row) /* % DISPLAY_HEIGHT*/; // if you use modulus, then it will
+            int screen_x = (x_pos + sprite_bit) /* % DISPLAY_WIDTH*/;  // wrap instead of clip
+            if (sprite_row + c->V[vy] >= 32)
             {
                 break;
             }
+            else if (sprite_bit + c->V[vx] >= 64)
+            {
+                break;
+            }
+            uint32_t screen_pixel = c->display[screen_y][screen_x];
+            uint8_t sprite_pixel = ((c->memory[c->I + sprite_row]) >> (7 - sprite_bit)) & 1;
             if (screen_pixel == ON_COLOR && sprite_pixel != 0)
             {
                 c->display[screen_y][screen_x] = OFF_COLOR;
@@ -330,12 +339,14 @@ void set_reg_timer(chip_8 *c, uint8_t vx)
 }
 
 // FX0A: halt until key press and store in Vx
-void wait_for_key(chip_8* c, uint8_t reg){
+void wait_for_key(chip_8 *c, uint8_t reg)
+{
     c->waitForKey = true;
     c->keyReg = reg;
 }
 
-void key_event(chip_8* c, uint8_t key){
+void key_event(chip_8 *c, uint8_t key)
+{
     c->V[c->keyReg] = key;
     c->waitForKey = false;
 }
@@ -381,21 +392,23 @@ void bcd(chip_8 *c, uint8_t vx)
 }
 
 // FX55: store rgister data in memory
-void store_reg(chip_8 *c, uint8_t vx)
+void store_reg(chip_8 *c, uint8_t x)
 {
-    for (int i = 0; i <= vx; i++)
+    for (int i = 0; i <= x; i++)
     {
         c->memory[c->I + i] = c->V[i];
     }
+    c->I += x + 1;
 }
 
 // FX65: load register data from memory
-void load_reg(chip_8 *c, uint8_t vx)
+void load_reg(chip_8 *c, uint8_t x)
 {
-    for (int i = 0; i <= vx; i++)
+    for (int i = 0; i <= x; i++)
     {
         c->V[i] = c->memory[c->I + i];
     }
+    c->I += x + 1;
 }
 
 void step(chip_8 *c)
@@ -417,7 +430,8 @@ void step(chip_8 *c)
     {
         continue_exec = true;
     }
-    if (!continue_exec) return;
+    if (!continue_exec)
+        return;
     uint8_t hi = c->memory[c->pc];
     uint8_t lo = c->memory[c->pc + 1];
     uint16_t full = (hi << 8) | lo;
@@ -481,13 +495,13 @@ void step(chip_8 *c)
             sub_reg(c, hi & 0xf, lo >> 4);
             break;
         case 0x6:
-            shift_reg_right(c, hi & 0xf);
+            shift_reg_right(c, hi & 0xf, lo >> 4);
             break;
         case 0x7:
             sub_reg_rev(c, hi & 0xf, lo >> 4);
             break;
         case 0xe:
-            shift_reg_left(c, hi & 0xf);
+            shift_reg_left(c, hi & 0xf, lo >> 4);
             break;
         default:
             printf("[!] unimplemented opcode! 0x%04x\n", full);
