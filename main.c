@@ -49,6 +49,7 @@ int init(chip_8 *c)
     c->sound_timer = 0;
 
     c->drawFlag = true;
+    c->waitForKey = false;
     printf("[*] init finished.\n");
 
     return 1;
@@ -196,6 +197,7 @@ void add_reg_to_reg(chip_8 *c, uint8_t vx, uint8_t vy)
 // if Vx is larger than Vy, VF is set to 1, however if Vy is bigger, then VF is set to 0.
 void sub_reg(chip_8 *c, uint8_t vx, uint8_t vy)
 {
+    int result = c->V[vx] - c->V[vy];
     if (c->V[vx] > c->V[vy])
     {
         c->V[0xf] = 1;
@@ -204,22 +206,22 @@ void sub_reg(chip_8 *c, uint8_t vx, uint8_t vy)
     {
         c->V[0xf] = 0;
     }
-    c->V[vx] -= c->V[vy];
+    c->V[vx] = result & 0xff;
 }
 
 // 8XY6: shift Vx one bit to right
 void shift_reg_right(chip_8 *c, uint8_t vx)
 {
-    c->V[0xf] = c->V[vx] & 0x1;
-    c->V[vx] >>= 1;
+    c->V[vx] = (c->V[vx] >> 1);
+    c->V[0xF] = (c->V[vx] >> 7) & 0x1;
 }
 
 // 8XY7: set Vx to Vy - Vx
 // if Vx is larger than Vy, VF is set to 1, however if Vy is bigger, then VF is set to 0.
 void sub_reg_rev(chip_8 *c, uint8_t vx, uint8_t vy)
 {
-    c->V[vx] = c->V[vy] - c->V[vx];
-    if (c->V[vx] > c->V[vy])
+    int result = c->V[vy] - c->V[vx];
+    if (c->V[vy] > c->V[vx])
     {
         c->V[0xf] = 1;
     }
@@ -227,13 +229,14 @@ void sub_reg_rev(chip_8 *c, uint8_t vx, uint8_t vy)
     {
         c->V[0xf] = 0;
     }
+    c->V[vx] = result & 0xff;
 }
 
 // 8XYE: shift Vx one bit to left
 void shift_reg_left(chip_8 *c, uint8_t vx)
 {
-    c->V[0xF] = (c->V[vx] >> 7) & 0x1;
     c->V[vx] = (c->V[vx] << 1);
+    c->V[0xF] = (c->V[vx] >> 7) & 0x1;
 }
 
 // 9XY0: skip if Vx is NOT equal to Vy
@@ -327,19 +330,14 @@ void set_reg_timer(chip_8 *c, uint8_t vx)
 }
 
 // FX0A: halt until key press and store in Vx
-void wait_for_key(chip_8 *c, uint8_t vx)
-{
-    while (true)
-    {
-        for (int i = 0; i < 16; i++)
-        {
-            if (c->keys[i])
-            {
-                c->V[vx] = i;
-                return;
-            }
-        }
-    }
+void wait_for_key(chip_8* c, uint8_t reg){
+    c->waitForKey = true;
+    c->keyReg = reg;
+}
+
+void key_event(chip_8* c, uint8_t key){
+    c->V[c->keyReg] = key;
+    c->waitForKey = false;
 }
 
 // FX15: set delay timer to Vx
@@ -400,8 +398,26 @@ void load_reg(chip_8 *c, uint8_t vx)
     }
 }
 
-int step(chip_8 *c)
+void step(chip_8 *c)
 {
+    bool continue_exec = false;
+    if (c->waitForKey)
+    {
+        for (int i = 0; i < 16; i++)
+        {
+            if (c->keys[i] != 0)
+            {
+                key_event(c, i);
+                continue_exec = true;
+                break;
+            }
+        }
+    }
+    else
+    {
+        continue_exec = true;
+    }
+    if (!continue_exec) return;
     uint8_t hi = c->memory[c->pc];
     uint8_t lo = c->memory[c->pc + 1];
     uint16_t full = (hi << 8) | lo;
@@ -542,7 +558,6 @@ int step(chip_8 *c)
     default:
         printf("[!] unimplemented opcode! 0x%04x\n", full);
     }
-    return 1;
 }
 
 int main(int argc, char **argv)

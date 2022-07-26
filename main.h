@@ -55,4 +55,6 @@ typedef struct
     uint8_t delay_timer;
     uint8_t sound_timer;
     bool drawFlag;
+    bool waitForKey;
+    uint8_t keyReg;
 } chip_8;
