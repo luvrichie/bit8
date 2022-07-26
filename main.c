@@ -216,8 +216,9 @@ void sub_reg(chip_8 *c, uint8_t vx, uint8_t vy)
 void shift_reg_right(chip_8 *c, uint8_t vx, uint8_t vy)
 {
     c->V[vx] = c->V[vy];
-    c->V[vx] = (c->V[vx] >> 1);
-    c->V[0xF] = (c->V[vx] >> 7) & 0x1;
+    uint8_t bit = (c->V[vx]) & 1;
+    c->V[vx] >>= 1;
+    c->V[0xf] = bit;
 }
 
 // 8XY7: set Vx to Vy - Vx
@@ -240,8 +241,8 @@ void sub_reg_rev(chip_8 *c, uint8_t vx, uint8_t vy)
 void shift_reg_left(chip_8 *c, uint8_t vx, uint8_t vy)
 {
     c->V[vx] = c->V[vy];
-    c->V[vx] = (c->V[vx] << 1);
-    c->V[0xF] = (c->V[vx] >> 7) & 0x1;
+    c->V[vx] <<= 1;
+    c->V[0xF] = (c->V[vx] >> 7) & 1;
 }
 
 // 9XY0: skip if Vx is NOT equal to Vy
@@ -585,6 +586,8 @@ int main(int argc, char **argv)
     init(&c);
     int fsize = load(&c, argv[1]);
 
+    const float target_frametime = 1.0f/60.0f;
+
     SDL_Window *mainWin = NULL;
     SDL_Renderer *winRenderer = NULL;
     SDL_Texture *winTexture = NULL;
@@ -623,6 +626,9 @@ int main(int argc, char **argv)
             }
         }
     }
+
+    uint64_t last_time = SDL_GetPerformanceCounter();
+    float dt = 0.0f;
     bool running = true;
     while (running)
     {
@@ -638,6 +644,21 @@ int main(int argc, char **argv)
                 break;
             }
         }
+
+        uint64_t new_time = SDL_GetPerformanceCounter();
+        float diff = new_time - last_time;
+        diff = diff / (float)(SDL_GetPerformanceFrequency());
+        float diff_ms = diff * 1000.0f;
+        dt += diff_ms;
+        if (dt > 16.666f)
+        {
+            dt -= 16.666f;
+            if (c.delay_timer > 0)
+                c.delay_timer--;
+            if (c.sound_timer > 0)
+                c.sound_timer--;
+        }
+        last_time = new_time;
 
         const uint8_t *key_state = SDL_GetKeyboardState(NULL);
         c.keys[0x0] = (bool)key_state[SDL_SCANCODE_X];
@@ -658,17 +679,6 @@ int main(int argc, char **argv)
         c.keys[0xb] = (bool)key_state[SDL_SCANCODE_C];
         c.keys[0xf] = (bool)key_state[SDL_SCANCODE_V];
 
-        if (c.delay_timer > 0)
-            c.delay_timer--;
-        if (c.sound_timer > 0)
-        {
-            c.sound_timer--;
-            if (c.sound_timer == 0)
-            {
-                printf("BEEP!\n");
-            }
-        }
-
         step(&c);
         if (c.drawFlag)
         {
@@ -678,6 +688,11 @@ int main(int argc, char **argv)
             SDL_RenderCopy(winRenderer, winTexture, NULL, &rect);
             SDL_RenderPresent(winRenderer);
             c.drawFlag = false;
+        }
+        if (diff_ms < target_frametime)
+        {
+
+            SDL_Delay(target_frametime - diff_ms);
         }
     }
 }
