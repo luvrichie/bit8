@@ -281,20 +281,20 @@ void num_gen(chip_8 *c, uint8_t vx, uint16_t value)
 // (from: https://tobiasvl.github.io/blog/write-a-chip-8-emulator/)
 void draw_sprite(chip_8 *c, uint8_t vx, uint8_t vy, uint8_t n)
 {
-    int y_pos = c->V[vy];
-    int x_pos = c->V[vx];
+    int y_pos = (c->V[vy] & 0x1F);
+    int x_pos = (c->V[vx] & 0x3F);
     c->V[0xf] = 0;
     for (int sprite_row = 0; sprite_row < n; sprite_row++)
     {
+        if (y_pos + sprite_row >= 32)
+        {
+            break;
+        }
         for (int sprite_bit = 0; sprite_bit < 8; sprite_bit++)
         {
-            int screen_y = (y_pos + sprite_row) /* % DISPLAY_HEIGHT*/; // if you use modulus, then it will
-            int screen_x = (x_pos + sprite_bit) /* % DISPLAY_WIDTH*/;  // wrap instead of clip
-            if (sprite_row + c->V[vy] >= 32)
-            {
-                break;
-            }
-            else if (sprite_bit + c->V[vx] >= 64)
+            int screen_y = (y_pos + sprite_row) % DISPLAY_HEIGHT;
+            int screen_x = (x_pos + sprite_bit) % DISPLAY_WIDTH;
+            if (x_pos + sprite_bit >= 64)
             {
                 break;
             }
