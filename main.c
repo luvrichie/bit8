@@ -216,8 +216,8 @@ void sub_reg(chip_8 *c, uint8_t vx, uint8_t vy)
 void shift_reg_right(chip_8 *c, uint8_t vx, uint8_t vy)
 {
     c->V[vx] = c->V[vy];
-    c->V[0xF] = c->V[vx] & 1;
     c->V[vx] = (c->V[vx] >> 1);
+    c->V[0xF] = (c->V[vx] >> 7) & 0x1;
 }
 
 // 8XY7: set Vx to Vy - Vx
@@ -240,8 +240,8 @@ void sub_reg_rev(chip_8 *c, uint8_t vx, uint8_t vy)
 void shift_reg_left(chip_8 *c, uint8_t vx, uint8_t vy)
 {
     c->V[vx] = c->V[vy];
-    c->V[0xF] = (c->V[vx] >> 7) & 0x1;
     c->V[vx] = (c->V[vx] << 1);
+    c->V[0xF] = (c->V[vx] >> 7) & 0x1;
 }
 
 // 9XY0: skip if Vx is NOT equal to Vy
