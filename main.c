@@ -218,7 +218,7 @@ void shift_reg_right(chip_8 *c, uint8_t vx)
 // if Vx is larger than Vy, VF is set to 1, however if Vy is bigger, then VF is set to 0.
 void sub_reg_rev(chip_8 *c, uint8_t vx, uint8_t vy)
 {
-    c->V[vy] -= c->V[vx];
+    c->V[vx] = c->V[vy] - c->V[vx];
     if (c->V[vx] > c->V[vy])
     {
         c->V[0xf] = 1;
