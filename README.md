@@ -22,3 +22,11 @@ that's about it!
 
 ## contributions
 i LOVE contributions! if you have an idea, an issue or literally anything you want to tell me about this, feel free to make an issue. the more, the merrier!
+
+## thanks, credits
+below is documentaiton and guides that aided me through creating this, aswell any repositories that i snipped some code out. thank you!
+https://github.com/thacks42/chip-8-emulator
+https://github.com/dmatlack/chip8
+https://tobiasvl.github.io/blog/write-a-chip-8-emulator/
+https://multigesture.net/articles/how-to-write-an-emulator-chip-8-interpreter/
+also, big thanks to the members of r/EmuDev's and The Coding Den's discord servers, for being such great help, even when i had really dumb-o questions. :P
